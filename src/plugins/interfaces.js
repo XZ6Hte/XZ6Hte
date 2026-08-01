@@ -19,24 +19,33 @@
  * @property {(id: string, party: object) => Promise<object|null>} updateParty
  * @property {(id: string) => Promise<boolean>}                deleteParty
  * @property {(filters?: object) => Promise<object[]>}         queryParties
+ * @property {(contract: object) => Promise<object>}              createContract
+ * @property {(id: string) => Promise<object|null>}               getContractById
+ * @property {(id: string, contract: object) => Promise<object|null>} updateContract
+ * @property {(id: string) => Promise<boolean>}                   deleteContract
+ * @property {(filters?: object) => Promise<object[]>}            queryContracts
  */
 
 /**
  * @typedef {object} ILLMPlugin
  * @property {(prompt: string) => Promise<object>}             generateParty
  * @property {(nlQuery: string) => Promise<object>}            extractQueryFilters
+ * @property {(prompt: string) => Promise<object>}             generateContract
+ * @property {(nlQuery: string) => Promise<object>}            extractContractQueryFilters
  */
 
 /**
  * @typedef {object} IValidatorPlugin
  * @property {(data: unknown) => { valid: boolean, errors: string[], suggestions: string[] }} validateParty
+ * @property {(data: unknown) => { valid: boolean, errors: string[], suggestions: string[] }} validateContract
  */
 
 // ─── Guards ───────────────────────────────────────────────────────────────────
 
-const STORAGE_METHODS   = ['createParty', 'getPartyById', 'updateParty', 'deleteParty', 'queryParties'];
-const LLM_METHODS       = ['generateParty', 'extractQueryFilters'];
-const VALIDATOR_METHODS = ['validateParty'];
+const STORAGE_METHODS   = ['createParty', 'getPartyById', 'updateParty', 'deleteParty', 'queryParties',
+                           'createContract', 'getContractById', 'updateContract', 'deleteContract', 'queryContracts'];
+const LLM_METHODS       = ['generateParty', 'extractQueryFilters', 'generateContract', 'extractContractQueryFilters'];
+const VALIDATOR_METHODS = ['validateParty', 'validateContract'];
 
 function assertMethods(plugin, methods, interfaceName) {
   for (const method of methods) {

@@ -10,7 +10,8 @@
 
 import { env } from './runtime.js';
 import { partiesHandler } from './routes/parties.js';
-import { registerPlugin } from './plugins/registry.js';
+import { contractsHandler } from './routes/contracts.js';
+import { registerPlugin, getPlugin } from './plugins/registry.js';
 import { dbPlugin }        from './plugins/db-plugin.js';
 import { llmPlugin }       from './plugins/llm-plugin.js';
 import { validatorPlugin } from './plugins/validator-plugin.js';
@@ -60,7 +61,10 @@ function json(data, { status = 200 } = {}) {
 
 // ─── Main fetch handler ───────────────────────────────────────────────────────
 
-const LLM_PATHS = new Set(['/parties/generate', '/parties/query']);
+const LLM_PATHS = new Set([
+  '/parties/generate', '/parties/query',
+  '/contracts/generate', '/contracts/query',
+]);
 
 /**
  * Handle a single HTTP request.
@@ -87,6 +91,14 @@ export async function handleRequest(request) {
       return json({ status: 'ok' });
     }
 
+    // GET /parties/:id/contracts — convenience: list contracts for a specific party
+    // Must be checked before the general /parties/* handler
+    if (request.method === 'GET' && /^\/parties\/[^/]+\/contracts$/.test(path)) {
+      const partyId = decodeURIComponent(path.split('/')[2]);
+      const storage = getPlugin('storage');
+      return json(await storage.queryContracts({ partyId }));
+    }
+
     // All /parties routes
     if (path === '/parties' || path.startsWith('/parties/')) {
       // Rate-limit LLM-backed endpoints
@@ -99,6 +111,20 @@ export async function handleRequest(request) {
         }
       }
       return await partiesHandler(request);
+    }
+
+    // All /contracts routes
+    if (path === '/contracts' || path.startsWith('/contracts/')) {
+      // Rate-limit LLM-backed endpoints
+      if (LLM_PATHS.has(path)) {
+        if (isRateLimited(getClientIp(request))) {
+          return json(
+            { error: 'Too many LLM requests. Please wait before trying again.' },
+            { status: 429 },
+          );
+        }
+      }
+      return await contractsHandler(request);
     }
 
     return json({ error: 'Not found.' }, { status: 404 });

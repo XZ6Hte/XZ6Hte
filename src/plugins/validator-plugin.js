@@ -7,8 +7,10 @@
  */
 
 import { validateParty } from '../validator.js';
+import { validateContract } from '../validator-contract.js';
 
 /** @type {import('./interfaces.js').IValidatorPlugin} */
 export const validatorPlugin = {
   validateParty,
+  validateContract,
 };

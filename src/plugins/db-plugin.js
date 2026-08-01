@@ -12,6 +12,11 @@ import {
   updateParty,
   deleteParty,
   queryParties,
+  createContract,
+  getContractById,
+  updateContract,
+  deleteContract,
+  queryContracts,
 } from '../db.js';
 
 /** @type {import('./interfaces.js').IStoragePlugin} */
@@ -21,4 +26,9 @@ export const dbPlugin = {
   updateParty,
   deleteParty,
   queryParties,
+  createContract,
+  getContractById,
+  updateContract,
+  deleteContract,
+  queryContracts,
 };

@@ -152,9 +152,153 @@ export const FEW_SHOT_MESSAGES = [
 export const QUERY_EXTRACTION_SYSTEM = `
 You are a query parser for a Parties database.
 Given a natural-language query, extract filter criteria and return ONLY a JSON object with these optional fields:
-  - type: one of Person, Organization, LocalBusiness, LegalService, MedicalOrganization, EducationalOrganization, GovernmentOrganization, NGO, Corporation
+  - type: one of Person, Organization, LocalBusiness, InsuranceAgency, LegalService, MedicalOrganization, EducationalOrganization, GovernmentOrganization, NGO, Corporation
   - name: partial name to search for
   - addressLocality: city or locality to filter by
+
+Return an empty object {} if no filters can be extracted.
+Never include extra fields or explanations. Output only valid JSON.
+`;
+
+// ─── Contract prompts ──────────────────────────────────────────────────────────
+
+import { CONTRACT_TYPES } from '../validator-contract.js';
+
+/**
+ * System prompt for generating Contract JSON-LD objects.
+ */
+export const CONTRACT_SYSTEM_PROMPT = `
+You are an expert in Schema.org structured data, specialising in insurance contracts and financial products.
+
+## Your job
+Given a natural-language description, produce a single valid JSON-LD Contract document (or an array of them).
+When asked to extract filter criteria from a query, produce a JSON object of filter fields only.
+
+## Output rules
+1. ALWAYS return valid JSON. Never wrap the JSON in markdown fences or add extra commentary.
+2. The root object MUST have "@context": "https://schema.org".
+3. "@type" MUST be one of: ${[...CONTRACT_TYPES].join(', ')}.
+4. "@id" MUST be a URN in the form "urn:uuid:<uuid-v4>".
+5. "name" (string) is REQUIRED (e.g. the policy or product name).
+6. At least one party reference is REQUIRED: "provider" (the insurer) or "insuredParty" (the policyholder).
+7. Only use Schema.org properties plus the domain extension "insuredParty". Never invent other custom properties.
+8. "provider" and "insuredParty" must each have "@id" and/or "name".
+9. "provider.@type" should be "InsuranceAgency" or another Organisation type.
+10. "insuredParty.@type" should be "Person" or an Organisation type.
+11. Dates must be ISO 8601 strings (YYYY-MM-DD).
+12. If a piece of information is not mentioned, omit the field entirely — do not use null.
+
+## Allowed top-level Contract properties
+@context, @type, @id, name, alternateName, description,
+provider, offeredBy, insuredParty,
+feesAndCommissionsSpecification, areaServed,
+identifier, url, sameAs, image,
+annualPercentageRate, interestRate,
+validFrom, validThrough,
+healthPlanId, healthPlanMarketingUrl, includesHealthPlanNetwork,
+healthPlanDrugOption, usesHealthPlanIdStandard.
+
+## provider / offeredBy properties
+@type (InsuranceAgency, Organization, …), @id, name, url.
+
+## insuredParty properties (domain extension — policyholder)
+@type (Person, Organization, …), @id, name.
+`;
+
+/**
+ * Few-shot examples for contract generation.
+ */
+export const CONTRACT_FEW_SHOT_MESSAGES = [
+  {
+    role: 'user',
+    content: 'Create a comprehensive home insurance policy called "Komplett-Schutz" offered by Allianz Germany to customer Maria Schmidt.',
+  },
+  {
+    role: 'assistant',
+    content: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'FinancialProduct',
+      '@id': 'urn:uuid:aaaaaaaa-0000-4000-a000-000000000001',
+      name: 'Komplett-Schutz',
+      description: 'Comprehensive home insurance covering fire, water damage, and theft.',
+      provider: {
+        '@type': 'InsuranceAgency',
+        '@id': 'urn:uuid:aaaaaaaa-0000-4000-a000-000000000002',
+        name: 'Allianz Germany',
+        url: 'https://www.allianz.de',
+      },
+      insuredParty: {
+        '@type': 'Person',
+        '@id': 'urn:uuid:aaaaaaaa-0000-4000-a000-000000000003',
+        name: 'Maria Schmidt',
+      },
+      areaServed: 'DE',
+      validFrom: '2024-01-01',
+      validThrough: '2024-12-31',
+      feesAndCommissionsSpecification: 'Monthly premium: €45.00',
+    }),
+  },
+  {
+    role: 'user',
+    content: 'Create a health insurance plan called "Basic Health Plan 2024" offered by AOK for the Hamburg region.',
+  },
+  {
+    role: 'assistant',
+    content: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'HealthInsurancePlan',
+      '@id': 'urn:uuid:bbbbbbbb-0000-4000-a000-000000000001',
+      name: 'Basic Health Plan 2024',
+      description: 'Statutory health insurance plan covering general medical services.',
+      provider: {
+        '@type': 'InsuranceAgency',
+        '@id': 'urn:uuid:bbbbbbbb-0000-4000-a000-000000000002',
+        name: 'AOK',
+        url: 'https://www.aok.de',
+      },
+      areaServed: 'Hamburg',
+      validFrom: '2024-01-01',
+      validThrough: '2024-12-31',
+    }),
+  },
+  {
+    role: 'user',
+    content: 'Create a liability insurance contract called "Business Liability Pro" for TechNova GmbH, provided by Zurich Insurance.',
+  },
+  {
+    role: 'assistant',
+    content: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'FinancialProduct',
+      '@id': 'urn:uuid:cccccccc-0000-4000-a000-000000000001',
+      name: 'Business Liability Pro',
+      description: 'Professional liability insurance for technology companies.',
+      provider: {
+        '@type': 'InsuranceAgency',
+        '@id': 'urn:uuid:cccccccc-0000-4000-a000-000000000002',
+        name: 'Zurich Insurance',
+        url: 'https://www.zurich.de',
+      },
+      insuredParty: {
+        '@type': 'Organization',
+        '@id': 'urn:uuid:cccccccc-0000-4000-a000-000000000003',
+        name: 'TechNova GmbH',
+      },
+      areaServed: 'DE',
+      feesAndCommissionsSpecification: 'Annual premium: €1,200.00',
+    }),
+  },
+];
+
+/**
+ * Prompt for extracting contract query filters from natural language.
+ */
+export const CONTRACT_QUERY_EXTRACTION_SYSTEM = `
+You are a query parser for a Contracts database.
+Given a natural-language query, extract filter criteria and return ONLY a JSON object with these optional fields:
+  - type: one of FinancialProduct, HealthInsurancePlan
+  - name: partial contract/policy name to search for
+  - partyId: the exact @id URI of a party (insurer or insured) to filter by
 
 Return an empty object {} if no filters can be extracted.
 Never include extra fields or explanations. Output only valid JSON.

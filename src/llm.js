@@ -7,8 +7,12 @@
  */
 
 import { env } from './runtime.js';
-import { SYSTEM_PROMPT, FEW_SHOT_MESSAGES, QUERY_EXTRACTION_SYSTEM } from './prompts/system.js';
+import {
+  SYSTEM_PROMPT, FEW_SHOT_MESSAGES, QUERY_EXTRACTION_SYSTEM,
+  CONTRACT_SYSTEM_PROMPT, CONTRACT_FEW_SHOT_MESSAGES, CONTRACT_QUERY_EXTRACTION_SYSTEM,
+} from './prompts/system.js';
 import { validateParty } from './validator.js';
+import { validateContract } from './validator-contract.js';
 
 const MAX_CORRECTION_ATTEMPTS = 1;
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
@@ -63,6 +67,65 @@ export async function generateParty(prompt) {
  */
 export async function extractQueryFilters(nlQuery) {
   const raw = await callLLM(QUERY_EXTRACTION_SYSTEM, [
+    { role: 'user', content: nlQuery },
+  ]);
+  try {
+    return JSON.parse(raw) || {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Ask the LLM to generate one or more Contract JSON-LD objects from a prompt.
+ * Includes one auto-correction attempt if validation fails.
+ *
+ * @param {string} prompt
+ * @returns {Promise<object>} JSON-LD Contract object (or array)
+ */
+export async function generateContract(prompt) {
+  const messages = [
+    ...CONTRACT_FEW_SHOT_MESSAGES,
+    { role: 'user', content: prompt },
+  ];
+
+  let raw = await callLLM(CONTRACT_SYSTEM_PROMPT, messages);
+  let parsed = parseJSON(raw);
+
+  // Auto-correction loop
+  for (let attempt = 0; attempt < MAX_CORRECTION_ATTEMPTS; attempt++) {
+    const contractsToCheck = Array.isArray(parsed) ? parsed : [parsed];
+    const allErrors = contractsToCheck.flatMap((c) => {
+      const result = validateContract(c);
+      return result.errors;
+    });
+
+    if (allErrors.length === 0) break;
+
+    const correctionMessages = [
+      ...messages,
+      { role: 'assistant', content: raw },
+      {
+        role: 'user',
+        content: `The output has validation errors. Fix them and return corrected JSON only.\n\nErrors:\n${allErrors.join('\n')}`,
+      },
+    ];
+    raw = await callLLM(CONTRACT_SYSTEM_PROMPT, correctionMessages);
+    parsed = parseJSON(raw);
+  }
+
+  // Ensure @id is set
+  return ensureContractIds(parsed);
+}
+
+/**
+ * Parse a natural-language query into contract database filter criteria.
+ *
+ * @param {string} nlQuery
+ * @returns {Promise<{ type?: string, name?: string, partyId?: string }>}
+ */
+export async function extractContractQueryFilters(nlQuery) {
+  const raw = await callLLM(CONTRACT_QUERY_EXTRACTION_SYSTEM, [
     { role: 'user', content: nlQuery },
   ]);
   try {
@@ -127,6 +190,24 @@ function ensureIds(data) {
         }
         return emp;
       });
+    }
+  }
+  return data;
+}
+
+function ensureContractIds(data) {
+  if (Array.isArray(data)) {
+    return data.map((item) => ensureContractIds(item));
+  }
+  if (data && typeof data === 'object') {
+    if (!data['@id']) {
+      data['@id'] = `urn:uuid:${crypto.randomUUID()}`;
+    }
+    // Ensure party references have @id
+    for (const field of ['provider', 'offeredBy', 'insuredParty']) {
+      if (data[field] && typeof data[field] === 'object' && !data[field]['@id']) {
+        data[field]['@id'] = `urn:uuid:${crypto.randomUUID()}`;
+      }
     }
   }
   return data;

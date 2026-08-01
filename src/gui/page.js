@@ -1,5 +1,5 @@
 /**
- * src/gui/page.js — Fluid HTML GUI for the Parties Manager
+ * src/gui/page.js — Fluid HTML GUI for the Parties & Contracts Manager
  *
  * Exports a single HTML string that is served at GET / and GET /gui.
  * The page communicates with the REST API using fetch() and relative
@@ -15,7 +15,7 @@ export const guiPage = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Parties Manager</title>
+  <title>Parties &amp; Contracts Manager</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -73,6 +73,24 @@ export const guiPage = `<!DOCTYPE html>
     }
     .app-header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; letter-spacing: -.01em; }
     .app-header .hdr-actions { display: flex; gap: .5rem; }
+
+    /* ── Section nav ─────────────────────────────────────────────────── */
+    .section-nav {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 2px solid var(--border);
+      flex-shrink: 0;
+    }
+    .section-nav-btn {
+      padding: .55rem 1.25rem;
+      border: none; background: none;
+      font-size: .9rem; font-weight: 500; cursor: pointer;
+      color: var(--text-muted);
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: color .1s; font-family: inherit;
+    }
+    .section-nav-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
 
     /* ── App layout (fluid grid) ─────────────────────────────────────── */
     .app-layout {
@@ -316,6 +334,10 @@ export const guiPage = `<!DOCTYPE html>
       to   { transform: translateX(0);    opacity: 1; }
     }
 
+    /* ── Section visibility ──────────────────────────────────────────── */
+    .app-section { display: none; flex: 1; overflow: hidden; min-height: 0; }
+    .app-section.active { display: flex; flex-direction: column; }
+
     /* ── Mobile overrides ────────────────────────────────────────────── */
     @media (max-width: 600px) {
       .detail-panel.open {
@@ -334,72 +356,138 @@ export const guiPage = `<!DOCTYPE html>
 
 <!-- ── Header ──────────────────────────────────────────────────────────────── -->
 <header class="app-header">
-  <h1>&#127970; Parties Manager</h1>
+  <h1>&#127970; Parties &amp; Contracts Manager</h1>
   <div class="hdr-actions">
     <button class="btn btn-secondary btn-header" id="btn-ai">&#10024; Generate</button>
-    <button class="btn btn-primary" id="btn-new">+ New Party</button>
+    <button class="btn btn-primary" id="btn-new">+ New</button>
   </div>
 </header>
 
-<!-- ── Main layout ─────────────────────────────────────────────────────────── -->
-<div class="app-layout">
+<!-- ── Section nav ─────────────────────────────────────────────────────────── -->
+<nav class="section-nav">
+  <button class="section-nav-btn active" data-section="parties">&#128101; Parties</button>
+  <button class="section-nav-btn"        data-section="contracts">&#128196; Contracts</button>
+</nav>
 
-  <!-- List panel -->
-  <div class="list-panel">
-    <div class="filters">
-      <input id="f-name" type="search" placeholder="Search by name&#8230;" autocomplete="off">
-      <select id="f-type">
-        <option value="">All types</option>
-        <option>Person</option>
-        <option>Organization</option>
-        <option>LocalBusiness</option>
-        <option>LegalService</option>
-        <option>MedicalOrganization</option>
-        <option>EducationalOrganization</option>
-        <option>GovernmentOrganization</option>
-        <option>NGO</option>
-        <option>Corporation</option>
-      </select>
-      <input id="f-loc" type="search" placeholder="Location&#8230;" autocomplete="off">
-      <button class="btn btn-secondary btn-sm" id="btn-filter">Filter</button>
-      <button class="btn btn-secondary btn-sm" id="btn-reset" title="Clear filters">&#215;</button>
+<!-- ════════════════════════════════════════════════════════════════════════════
+     PARTIES SECTION
+  ══════════════════════════════════════════════════════════════════════════════ -->
+<div class="app-section active" id="section-parties">
+  <div class="app-layout">
+
+    <!-- List panel -->
+    <div class="list-panel">
+      <div class="filters">
+        <input id="f-name" type="search" placeholder="Search by name&#8230;" autocomplete="off">
+        <select id="f-type">
+          <option value="">All types</option>
+          <option>Person</option>
+          <option>Organization</option>
+          <option>LocalBusiness</option>
+          <option>InsuranceAgency</option>
+          <option>LegalService</option>
+          <option>MedicalOrganization</option>
+          <option>EducationalOrganization</option>
+          <option>GovernmentOrganization</option>
+          <option>NGO</option>
+          <option>Corporation</option>
+        </select>
+        <input id="f-loc" type="search" placeholder="Location&#8230;" autocomplete="off">
+        <button class="btn btn-secondary btn-sm" id="btn-filter">Filter</button>
+        <button class="btn btn-secondary btn-sm" id="btn-reset" title="Clear filters">&#215;</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th class="td-loc">Location</th>
+              <th style="text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="party-tbody">
+            <tr class="empty-row"><td colspan="4">Loading&#8230;</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th class="td-loc">Location</th>
-            <th style="text-align:right">Actions</th>
-          </tr>
-        </thead>
-        <tbody id="party-tbody">
-          <tr class="empty-row"><td colspan="4">Loading&#8230;</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <!-- Detail panel -->
+    <aside class="detail-panel" id="detail-panel">
+      <div class="detail-inner">
+        <div class="detail-header">
+          <h2 id="detail-name">&#8212;</h2>
+          <button class="btn btn-ghost" id="btn-close-detail" title="Close">&#215;</button>
+        </div>
+        <div class="detail-body" id="detail-body"></div>
+        <div class="detail-footer">
+          <button class="btn btn-secondary" id="btn-edit-detail">&#9998; Edit</button>
+          <button class="btn btn-danger"    id="btn-delete-detail">&#128465; Delete</button>
+        </div>
+      </div>
+    </aside>
+
   </div>
+</div><!-- /#section-parties -->
 
-  <!-- Detail panel -->
-  <aside class="detail-panel" id="detail-panel">
-    <div class="detail-inner">
-      <div class="detail-header">
-        <h2 id="detail-name">&#8212;</h2>
-        <button class="btn btn-ghost" id="btn-close-detail" title="Close">&#215;</button>
+<!-- ════════════════════════════════════════════════════════════════════════════
+     CONTRACTS SECTION
+  ══════════════════════════════════════════════════════════════════════════════ -->
+<div class="app-section" id="section-contracts">
+  <div class="app-layout">
+
+    <!-- List panel -->
+    <div class="list-panel">
+      <div class="filters">
+        <input id="cf-name" type="search" placeholder="Search by name&#8230;" autocomplete="off">
+        <select id="cf-type">
+          <option value="">All types</option>
+          <option>FinancialProduct</option>
+          <option>HealthInsurancePlan</option>
+        </select>
+        <input id="cf-party" type="search" placeholder="Party @id&#8230;" autocomplete="off">
+        <button class="btn btn-secondary btn-sm" id="btn-cfilter">Filter</button>
+        <button class="btn btn-secondary btn-sm" id="btn-creset" title="Clear filters">&#215;</button>
       </div>
-      <div class="detail-body" id="detail-body"></div>
-      <div class="detail-footer">
-        <button class="btn btn-secondary" id="btn-edit-detail">&#9998; Edit</button>
-        <button class="btn btn-danger"    id="btn-delete-detail">&#128465; Delete</button>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th class="td-loc">Provider</th>
+              <th style="text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="contract-tbody">
+            <tr class="empty-row"><td colspan="4">Loading&#8230;</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
-  </aside>
 
-</div><!-- /.app-layout -->
+    <!-- Detail panel -->
+    <aside class="detail-panel" id="cdetail-panel">
+      <div class="detail-inner">
+        <div class="detail-header">
+          <h2 id="cdetail-name">&#8212;</h2>
+          <button class="btn btn-ghost" id="btn-close-cdetail" title="Close">&#215;</button>
+        </div>
+        <div class="detail-body" id="cdetail-body"></div>
+        <div class="detail-footer">
+          <button class="btn btn-secondary" id="btn-edit-cdetail">&#9998; Edit</button>
+          <button class="btn btn-danger"    id="btn-delete-cdetail">&#128465; Delete</button>
+        </div>
+      </div>
+    </aside>
 
-<!-- ── Create / Edit dialog ─────────────────────────────────────────────────── -->
+  </div>
+</div><!-- /#section-contracts -->
+
+<!-- ── Party Create / Edit dialog ───────────────────────────────────────────── -->
 <dialog id="party-dialog">
   <div class="dialog-header">
     <h3 id="dialog-title">New Party</h3>
@@ -426,6 +514,7 @@ export const guiPage = `<!DOCTYPE html>
             <option>Person</option>
             <option>Organization</option>
             <option>LocalBusiness</option>
+            <option>InsuranceAgency</option>
             <option>LegalService</option>
             <option>MedicalOrganization</option>
             <option>EducationalOrganization</option>
@@ -499,6 +588,125 @@ export const guiPage = `<!DOCTYPE html>
   </div>
 </dialog>
 
+<!-- ── Contract Create / Edit dialog ────────────────────────────────────────── -->
+<dialog id="contract-dialog">
+  <div class="dialog-header">
+    <h3 id="cdialog-title">New Contract</h3>
+    <button class="btn btn-ghost" id="btn-close-cdialog">&#215;</button>
+  </div>
+  <div class="dialog-body">
+
+    <!-- Tabs (hidden on edit) -->
+    <div class="tabs" id="cdialog-tabs">
+      <button class="tab-btn active" data-ctab="cform">Form</button>
+      <button class="tab-btn"        data-ctab="cai">&#10024; AI&nbsp;Generate</button>
+    </div>
+
+    <!-- Form tab -->
+    <div class="tab-panel active" id="tab-cform">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="cp-name">Policy Name <span class="req">*</span></label>
+          <input class="form-control" id="cp-name" type="text" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cp-type">Type <span class="req">*</span></label>
+          <select class="form-control" id="cp-type">
+            <option>FinancialProduct</option>
+            <option>HealthInsurancePlan</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cp-desc">Description</label>
+        <input class="form-control" id="cp-desc" type="text">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="cp-valid-from">Valid From</label>
+          <input class="form-control" id="cp-valid-from" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cp-valid-through">Valid Through</label>
+          <input class="form-control" id="cp-valid-through" type="date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cp-fees">Fees &amp; Premiums</label>
+        <input class="form-control" id="cp-fees" type="text" placeholder="e.g. Monthly premium: €45.00">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cp-area">Area Served</label>
+        <input class="form-control" id="cp-area" type="text" placeholder="e.g. DE, Hamburg, Europe">
+      </div>
+
+      <div class="section-label">Provider (Insurer) <span class="req">*</span> or Insured Party required</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="cp-provider-name">Provider Name</label>
+          <input class="form-control" id="cp-provider-name" type="text" placeholder="Allianz, AOK&#8230;">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cp-provider-type">Provider Type</label>
+          <select class="form-control" id="cp-provider-type">
+            <option value="">— select —</option>
+            <option>InsuranceAgency</option>
+            <option>Organization</option>
+            <option>Corporation</option>
+            <option>LocalBusiness</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cp-provider-id">Provider @id (URI)</label>
+        <input class="form-control" id="cp-provider-id" type="text" placeholder="urn:uuid:&#8230;">
+      </div>
+
+      <div class="section-label">Insured Party (Policyholder)</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="cp-insured-name">Insured Name</label>
+          <input class="form-control" id="cp-insured-name" type="text">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cp-insured-type">Insured Type</label>
+          <select class="form-control" id="cp-insured-type">
+            <option value="">— select —</option>
+            <option>Person</option>
+            <option>Organization</option>
+            <option>Corporation</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cp-insured-id">Insured @id (URI)</label>
+        <input class="form-control" id="cp-insured-id" type="text" placeholder="urn:uuid:&#8230;">
+      </div>
+
+      <div id="cform-errors" class="error-list"></div>
+    </div>
+
+    <!-- AI Generate tab -->
+    <div class="tab-panel" id="tab-cai">
+      <div class="form-group">
+        <label class="form-label" for="cp-prompt">
+          Describe the contract in plain language
+        </label>
+        <textarea
+          class="form-control" id="cp-prompt" rows="5"
+          placeholder="e.g. Create a home insurance policy called Komplett-Schutz offered by Allianz to Maria Schmidt."
+        ></textarea>
+      </div>
+      <div id="cai-errors" class="error-list"></div>
+    </div>
+
+  </div><!-- /.dialog-body -->
+  <div class="dialog-footer">
+    <button class="btn btn-secondary" id="btn-cancel-cdialog">Cancel</button>
+    <button class="btn btn-primary"   id="btn-submit-cdialog">Create</button>
+  </div>
+</dialog>
+
 <!-- ── Toast container ──────────────────────────────────────────────────────── -->
 <div class="toast-wrap" id="toasts"></div>
 
@@ -507,9 +715,16 @@ export const guiPage = `<!DOCTYPE html>
 
 // ── State ────────────────────────────────────────────────────────────────────
 var parties    = [];
-var activeId   = null;  // currently shown in detail panel
-var editingId  = null;  // null = create mode, string = edit mode
+var activeId   = null;
+var editingId  = null;
 var activeTab  = 'form';
+
+var contracts   = [];
+var cActiveId   = null;
+var cEditingId  = null;
+var cActiveTab  = 'cform';
+
+var currentSection = 'parties';
 
 // ── Utility ──────────────────────────────────────────────────────────────────
 function esc(s) {
@@ -557,7 +772,27 @@ function apiFetch(path, opts) {
   });
 }
 
-// ── Load & render table ──────────────────────────────────────────────────────
+// ── Section switching ────────────────────────────────────────────────────────
+function switchSection(section) {
+  currentSection = section;
+  document.querySelectorAll('.section-nav-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.section === section);
+  });
+  document.querySelectorAll('.app-section').forEach(function(s) {
+    s.classList.toggle('active', s.id === 'section-' + section);
+  });
+  document.getElementById('btn-new').textContent = section === 'parties' ? '+ New Party' : '+ New Contract';
+  document.getElementById('btn-ai').title = section === 'parties' ? 'AI Generate Party' : 'AI Generate Contract';
+}
+
+document.querySelectorAll('.section-nav-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() { switchSection(btn.dataset.section); });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// PARTIES
+// ════════════════════════════════════════════════════════════════════════════
+
 function loadParties() {
   var qs = new URLSearchParams();
   var name = document.getElementById('f-name').value.trim();
@@ -572,14 +807,14 @@ function loadParties() {
 
   return apiFetch('/parties?' + qs).then(function(data) {
     parties = data;
-    renderTable();
+    renderPartyTable();
   }).catch(function(e) {
     toast(e.message, 'error');
     tbody.innerHTML = '<tr class="empty-row"><td colspan="4">Failed to load parties.</td></tr>';
   });
 }
 
-function renderTable() {
+function renderPartyTable() {
   var tbody = document.getElementById('party-tbody');
   if (!parties.length) {
     tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No parties found. Use &ldquo;+ New Party&rdquo; to add one.</td></tr>';
@@ -607,19 +842,17 @@ function findParty(id) {
   return null;
 }
 
-// ── Detail panel ─────────────────────────────────────────────────────────────
 function openDetail(id) {
   var p = findParty(id);
   if (!p) return;
   activeId = id;
-  renderTable();
-
+  renderPartyTable();
   document.getElementById('detail-name').textContent = p.name;
-  document.getElementById('detail-body').innerHTML   = buildDetailHtml(p);
+  document.getElementById('detail-body').innerHTML   = buildPartyDetailHtml(p);
   document.getElementById('detail-panel').classList.add('open');
 }
 
-function buildDetailHtml(p) {
+function buildPartyDetailHtml(p) {
   var addr = p.address || {};
   var rows = [
     ['Type',        esc(p['@type'])],
@@ -651,11 +884,10 @@ function buildDetailHtml(p) {
 
 function closeDetail() {
   activeId = null;
-  renderTable();
+  renderPartyTable();
   document.getElementById('detail-panel').classList.remove('open');
 }
 
-// ── Dialog ────────────────────────────────────────────────────────────────────
 var FORM_FIELDS = [
   'fp-name','fp-desc','fp-email','fp-phone',
   'fp-street','fp-city','fp-region','fp-postal','fp-country','fp-prompt',
@@ -703,10 +935,10 @@ function closeDialog() {
 
 function setTab(tab) {
   activeTab = tab;
-  document.querySelectorAll('.tab-btn').forEach(function(b) {
+  document.querySelectorAll('#party-dialog .tab-btn').forEach(function(b) {
     b.classList.toggle('active', b.dataset.tab === tab);
   });
-  document.querySelectorAll('.tab-panel').forEach(function(p) {
+  document.querySelectorAll('#party-dialog .tab-panel').forEach(function(p) {
     p.classList.toggle('active', p.id === 'tab-' + tab);
   });
   var lbl = tab === 'ai' ? 'Generate & Save' : (editingId ? 'Save Changes' : 'Create');
@@ -759,17 +991,13 @@ function submitDialog() {
     promise = apiFetch('/parties/generate', { method: 'POST', body: { prompt: prompt } })
       .then(function(result) {
         var arr = Array.isArray(result) ? result : [result];
-        arr.forEach(function(p) {
-          parties.unshift(p);
-        });
+        arr.forEach(function(p) { parties.unshift(p); });
         toast('Party generated and saved!');
         closeDialog();
-        renderTable();
+        renderPartyTable();
         if (arr.length) openDetail(arr[0]['@id']);
       })
-      .catch(function(e) {
-        showErrors('ai-errors', e.errors || [e.message]);
-      });
+      .catch(function(e) { showErrors('ai-errors', e.errors || [e.message]); });
   } else {
     var party;
     try { party = buildPartyFromForm(); }
@@ -783,7 +1011,7 @@ function submitDialog() {
           }
           toast('Party updated.');
           closeDialog();
-          renderTable();
+          renderPartyTable();
           openDetail(editingId);
         })
         .catch(function(e) { showErrors('form-errors', e.errors || [e.message]); });
@@ -793,7 +1021,7 @@ function submitDialog() {
           parties.unshift(created);
           toast('Party created.');
           closeDialog();
-          renderTable();
+          renderPartyTable();
           openDetail(created['@id']);
         })
         .catch(function(e) { showErrors('form-errors', e.errors || [e.message]); });
@@ -809,19 +1037,312 @@ function deleteParty(id) {
     .then(function() {
       parties = parties.filter(function(p) { return p['@id'] !== id; });
       if (activeId === id) closeDetail();
-      renderTable();
+      renderPartyTable();
       toast('Party deleted.');
     })
     .catch(function(e) { toast(e.message, 'error'); });
 }
 
-// ── Event wiring ─────────────────────────────────────────────────────────────
-document.getElementById('btn-new').addEventListener('click', function() { openDialog(); });
+// ════════════════════════════════════════════════════════════════════════════
+// CONTRACTS
+// ════════════════════════════════════════════════════════════════════════════
+
+function loadContracts() {
+  var qs = new URLSearchParams();
+  var name   = document.getElementById('cf-name').value.trim();
+  var type   = document.getElementById('cf-type').value;
+  var party  = document.getElementById('cf-party').value.trim();
+  if (name)  qs.set('name',    name);
+  if (type)  qs.set('type',    type);
+  if (party) qs.set('partyId', party);
+
+  var tbody = document.getElementById('contract-tbody');
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="4">Loading&#8230;</td></tr>';
+
+  return apiFetch('/contracts?' + qs).then(function(data) {
+    contracts = data;
+    renderContractTable();
+  }).catch(function(e) {
+    toast(e.message, 'error');
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">Failed to load contracts.</td></tr>';
+  });
+}
+
+function renderContractTable() {
+  var tbody = document.getElementById('contract-tbody');
+  if (!contracts.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No contracts found. Use &ldquo;+ New Contract&rdquo; to add one.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = contracts.map(function(c) {
+    var provider = '';
+    if (c.provider) {
+      provider = typeof c.provider === 'string' ? c.provider : (c.provider.name || '');
+    } else if (c.offeredBy) {
+      provider = typeof c.offeredBy === 'string' ? c.offeredBy : (c.offeredBy.name || '');
+    }
+    var isActive = c['@id'] === cActiveId ? ' class="active"' : '';
+    return '<tr data-id="' + esc(c['@id']) + '"' + isActive + '>' +
+      '<td class="td-name">'    + esc(c.name)     + '</td>' +
+      '<td class="td-type">'    + esc(c['@type']) + '</td>' +
+      '<td class="td-loc">'     + esc(provider)    + '</td>' +
+      '<td class="td-actions">' +
+        '<button class="btn btn-ghost btn-sm btn-cedit"   title="Edit">&#9998;</button>' +
+        '<button class="btn btn-ghost btn-sm btn-cdelete" title="Delete">&#128465;</button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function findContract(id) {
+  for (var i = 0; i < contracts.length; i++) {
+    if (contracts[i]['@id'] === id) return contracts[i];
+  }
+  return null;
+}
+
+function openCDetail(id) {
+  var c = findContract(id);
+  if (!c) return;
+  cActiveId = id;
+  renderContractTable();
+  document.getElementById('cdetail-name').textContent = c.name;
+  document.getElementById('cdetail-body').innerHTML   = buildContractDetailHtml(c);
+  document.getElementById('cdetail-panel').classList.add('open');
+}
+
+function refLabel(ref) {
+  if (!ref) return '';
+  if (typeof ref === 'string') return ref;
+  var parts = [];
+  if (ref.name) parts.push(ref.name);
+  if (ref['@type']) parts.push('(' + ref['@type'] + ')');
+  return parts.join(' ') || ref['@id'] || '';
+}
+
+function buildContractDetailHtml(c) {
+  var rows = [
+    ['Type',        esc(c['@type'])],
+    c.description              ? ['Description',  esc(c.description)]              : null,
+    c.identifier               ? ['Identifier',   esc(c.identifier)]               : null,
+    (c.provider || c.offeredBy) ? ['Provider',    esc(refLabel(c.provider || c.offeredBy))] : null,
+    c.insuredParty             ? ['Insured',       esc(refLabel(c.insuredParty))]   : null,
+    c.areaServed               ? ['Area Served',   esc(c.areaServed)]               : null,
+    c.validFrom                ? ['Valid From',    esc(c.validFrom)]                : null,
+    c.validThrough             ? ['Valid Through', esc(c.validThrough)]             : null,
+    c.feesAndCommissionsSpecification ? ['Fees', esc(c.feesAndCommissionsSpecification)] : null,
+    ['ID', '<span style="font-family:monospace;font-size:.72rem;word-break:break-all">' + esc(c['@id']) + '</span>'],
+  ].filter(Boolean);
+
+  var fieldHtml = '<div class="field-list">' +
+    rows.map(function(r) {
+      return '<div class="field-row">' +
+        '<span class="field-label">' + esc(r[0]) + '</span>' +
+        '<span class="field-value">' + r[1] + '</span>' +
+      '</div>';
+    }).join('') +
+  '</div>';
+
+  var jsonHtml = '<div class="section-label">JSON-LD</div>' +
+    '<div class="json-block">' + esc(JSON.stringify(c, null, 2)) + '</div>';
+
+  return fieldHtml + jsonHtml;
+}
+
+function closeCDetail() {
+  cActiveId = null;
+  renderContractTable();
+  document.getElementById('cdetail-panel').classList.remove('open');
+}
+
+var CONTRACT_FORM_FIELDS = [
+  'cp-name','cp-desc','cp-valid-from','cp-valid-through','cp-fees','cp-area',
+  'cp-provider-name','cp-provider-id','cp-insured-name','cp-insured-id','cp-prompt',
+];
+
+function openCDialog(contractId) {
+  contractId = contractId || null;
+  cEditingId = contractId;
+  var isEdit = contractId !== null;
+
+  setCTab('cform');
+  document.getElementById('cdialog-title').textContent = isEdit ? 'Edit Contract' : 'New Contract';
+  document.getElementById('cdialog-tabs').style.display = isEdit ? 'none' : '';
+  document.getElementById('cform-errors').innerHTML = '';
+  document.getElementById('cai-errors').innerHTML   = '';
+
+  CONTRACT_FORM_FIELDS.forEach(function(id) { document.getElementById(id).value = ''; });
+  document.getElementById('cp-type').value          = 'FinancialProduct';
+  document.getElementById('cp-provider-type').value = '';
+  document.getElementById('cp-insured-type').value  = '';
+
+  if (isEdit) {
+    var c = findContract(contractId);
+    if (c) {
+      document.getElementById('cp-name').value         = c.name          || '';
+      document.getElementById('cp-type').value         = c['@type']      || 'FinancialProduct';
+      document.getElementById('cp-desc').value         = c.description   || '';
+      document.getElementById('cp-valid-from').value   = c.validFrom     || '';
+      document.getElementById('cp-valid-through').value = c.validThrough || '';
+      document.getElementById('cp-fees').value         = c.feesAndCommissionsSpecification || '';
+      document.getElementById('cp-area').value         = c.areaServed    || '';
+      var prov = c.provider || c.offeredBy;
+      if (prov && typeof prov === 'object') {
+        document.getElementById('cp-provider-name').value = prov.name      || '';
+        document.getElementById('cp-provider-type').value = prov['@type']  || '';
+        document.getElementById('cp-provider-id').value   = prov['@id']    || '';
+      }
+      if (c.insuredParty && typeof c.insuredParty === 'object') {
+        document.getElementById('cp-insured-name').value = c.insuredParty.name     || '';
+        document.getElementById('cp-insured-type').value = c.insuredParty['@type'] || '';
+        document.getElementById('cp-insured-id').value   = c.insuredParty['@id']   || '';
+      }
+    }
+  }
+
+  document.getElementById('btn-submit-cdialog').textContent = isEdit ? 'Save Changes' : 'Create';
+  document.getElementById('contract-dialog').showModal();
+  document.getElementById('cp-name').focus();
+}
+
+function closeCDialog() {
+  document.getElementById('contract-dialog').close();
+}
+
+function setCTab(tab) {
+  cActiveTab = tab;
+  document.querySelectorAll('#contract-dialog .tab-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.ctab === tab);
+  });
+  document.querySelectorAll('#contract-dialog .tab-panel').forEach(function(p) {
+    p.classList.toggle('active', p.id === 'tab-' + tab);
+  });
+  var lbl = tab === 'cai' ? 'Generate & Save' : (cEditingId ? 'Save Changes' : 'Create');
+  document.getElementById('btn-submit-cdialog').textContent = lbl;
+}
+
+function buildContractFromForm() {
+  var name         = document.getElementById('cp-name').value.trim();
+  var type         = document.getElementById('cp-type').value;
+  var desc         = document.getElementById('cp-desc').value.trim();
+  var validFrom    = document.getElementById('cp-valid-from').value.trim();
+  var validThrough = document.getElementById('cp-valid-through').value.trim();
+  var fees         = document.getElementById('cp-fees').value.trim();
+  var area         = document.getElementById('cp-area').value.trim();
+  var provName     = document.getElementById('cp-provider-name').value.trim();
+  var provType     = document.getElementById('cp-provider-type').value;
+  var provId       = document.getElementById('cp-provider-id').value.trim();
+  var insName      = document.getElementById('cp-insured-name').value.trim();
+  var insType      = document.getElementById('cp-insured-type').value;
+  var insId        = document.getElementById('cp-insured-id').value.trim();
+
+  if (!name) throw new Error('Policy name is required.');
+  if (!provName && !provId && !insName && !insId) {
+    throw new Error('At least one party reference is required: Provider or Insured Party.');
+  }
+
+  var contract = { '@context': 'https://schema.org', '@type': type, name: name };
+  if (desc)         contract.description = desc;
+  if (validFrom)    contract.validFrom   = validFrom;
+  if (validThrough) contract.validThrough = validThrough;
+  if (fees)         contract.feesAndCommissionsSpecification = fees;
+  if (area)         contract.areaServed  = area;
+
+  if (provName || provId) {
+    contract.provider = {};
+    if (provType) contract.provider['@type'] = provType;
+    if (provId)   contract.provider['@id']   = provId;
+    if (provName) contract.provider.name      = provName;
+  }
+
+  if (insName || insId) {
+    contract.insuredParty = {};
+    if (insType) contract.insuredParty['@type'] = insType;
+    if (insId)   contract.insuredParty['@id']   = insId;
+    if (insName) contract.insuredParty.name      = insName;
+  }
+
+  return contract;
+}
+
+function submitCDialog() {
+  var btn = document.getElementById('btn-submit-cdialog');
+  btn.disabled = true;
+
+  var promise;
+  if (cActiveTab === 'cai') {
+    var prompt = document.getElementById('cp-prompt').value.trim();
+    if (!prompt) {
+      showErrors('cai-errors', ['Prompt is required.']);
+      btn.disabled = false;
+      return;
+    }
+    promise = apiFetch('/contracts/generate', { method: 'POST', body: { prompt: prompt } })
+      .then(function(result) {
+        var arr = Array.isArray(result) ? result : [result];
+        arr.forEach(function(c) { contracts.unshift(c); });
+        toast('Contract generated and saved!');
+        closeCDialog();
+        renderContractTable();
+        if (arr.length) openCDetail(arr[0]['@id']);
+      })
+      .catch(function(e) { showErrors('cai-errors', e.errors || [e.message]); });
+  } else {
+    var contract;
+    try { contract = buildContractFromForm(); }
+    catch (e) { showErrors('cform-errors', [e.message]); btn.disabled = false; return; }
+
+    if (cEditingId) {
+      promise = apiFetch('/contracts/' + encodeURIComponent(cEditingId), { method: 'PATCH', body: contract })
+        .then(function(updated) {
+          for (var i = 0; i < contracts.length; i++) {
+            if (contracts[i]['@id'] === cEditingId) { contracts[i] = updated; break; }
+          }
+          toast('Contract updated.');
+          closeCDialog();
+          renderContractTable();
+          openCDetail(cEditingId);
+        })
+        .catch(function(e) { showErrors('cform-errors', e.errors || [e.message]); });
+    } else {
+      promise = apiFetch('/contracts', { method: 'POST', body: contract })
+        .then(function(created) {
+          contracts.unshift(created);
+          toast('Contract created.');
+          closeCDialog();
+          renderContractTable();
+          openCDetail(created['@id']);
+        })
+        .catch(function(e) { showErrors('cform-errors', e.errors || [e.message]); });
+    }
+  }
+
+  promise.finally(function() { btn.disabled = false; });
+}
+
+function deleteContract(id) {
+  if (!confirm('Delete this contract? This action cannot be undone.')) return;
+  apiFetch('/contracts/' + encodeURIComponent(id), { method: 'DELETE' })
+    .then(function() {
+      contracts = contracts.filter(function(c) { return c['@id'] !== id; });
+      if (cActiveId === id) closeCDetail();
+      renderContractTable();
+      toast('Contract deleted.');
+    })
+    .catch(function(e) { toast(e.message, 'error'); });
+}
+
+// ── Header button routing ─────────────────────────────────────────────────────
+document.getElementById('btn-new').addEventListener('click', function() {
+  if (currentSection === 'parties') openDialog();
+  else openCDialog();
+});
 document.getElementById('btn-ai').addEventListener('click', function() {
-  openDialog();
-  setTab('ai');
+  if (currentSection === 'parties') { openDialog(); setTab('ai'); }
+  else { openCDialog(); setCTab('cai'); }
 });
 
+// ── Party event wiring ────────────────────────────────────────────────────────
 document.getElementById('btn-filter').addEventListener('click', loadParties);
 document.getElementById('btn-reset').addEventListener('click', function() {
   document.getElementById('f-name').value = '';
@@ -857,20 +1378,67 @@ document.getElementById('btn-close-dialog').addEventListener('click', closeDialo
 document.getElementById('btn-cancel-dialog').addEventListener('click', closeDialog);
 document.getElementById('btn-submit-dialog').addEventListener('click', submitDialog);
 
-document.querySelectorAll('.tab-btn').forEach(function(btn) {
+document.querySelectorAll('#party-dialog .tab-btn').forEach(function(btn) {
   btn.addEventListener('click', function() { setTab(btn.dataset.tab); });
 });
 
 document.getElementById('party-dialog').addEventListener('click', function(e) {
   if (e.target === e.currentTarget) closeDialog();
 });
-
 document.getElementById('party-dialog').addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeDialog();
 });
 
+// ── Contract event wiring ─────────────────────────────────────────────────────
+document.getElementById('btn-cfilter').addEventListener('click', loadContracts);
+document.getElementById('btn-creset').addEventListener('click', function() {
+  document.getElementById('cf-name').value  = '';
+  document.getElementById('cf-type').value  = '';
+  document.getElementById('cf-party').value = '';
+  loadContracts();
+});
+
+['cf-name', 'cf-type', 'cf-party'].forEach(function(id) {
+  document.getElementById(id).addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') loadContracts();
+  });
+});
+
+document.getElementById('contract-tbody').addEventListener('click', function(e) {
+  var row = e.target.closest('tr[data-id]');
+  if (!row) return;
+  var id = row.dataset.id;
+  if (e.target.closest('.btn-cedit'))   { openCDialog(id); return; }
+  if (e.target.closest('.btn-cdelete')) { deleteContract(id); return; }
+  openCDetail(id);
+});
+
+document.getElementById('btn-close-cdetail').addEventListener('click', closeCDetail);
+document.getElementById('btn-edit-cdetail').addEventListener('click', function() {
+  if (cActiveId) openCDialog(cActiveId);
+});
+document.getElementById('btn-delete-cdetail').addEventListener('click', function() {
+  if (cActiveId) deleteContract(cActiveId);
+});
+
+document.getElementById('btn-close-cdialog').addEventListener('click', closeCDialog);
+document.getElementById('btn-cancel-cdialog').addEventListener('click', closeCDialog);
+document.getElementById('btn-submit-cdialog').addEventListener('click', submitCDialog);
+
+document.querySelectorAll('#contract-dialog .tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() { setCTab(btn.dataset.ctab); });
+});
+
+document.getElementById('contract-dialog').addEventListener('click', function(e) {
+  if (e.target === e.currentTarget) closeCDialog();
+});
+document.getElementById('contract-dialog').addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeCDialog();
+});
+
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 loadParties();
+loadContracts();
 </script>
 </body>
 </html>`;

@@ -25,6 +25,7 @@ export const PARTY_TYPES = new Set([
   'Person',
   'Organization',
   'LocalBusiness',
+  'InsuranceAgency',
   'LegalService',
   'MedicalOrganization',
   'EducationalOrganization',

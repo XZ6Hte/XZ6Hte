@@ -6,10 +6,12 @@
  * ILLMPlugin implementation to replace the language model backend.
  */
 
-import { generateParty, extractQueryFilters } from '../llm.js';
+import { generateParty, extractQueryFilters, generateContract, extractContractQueryFilters } from '../llm.js';
 
 /** @type {import('./interfaces.js').ILLMPlugin} */
 export const llmPlugin = {
   generateParty,
   extractQueryFilters,
+  generateContract,
+  extractContractQueryFilters,
 };
