@@ -8,9 +8,13 @@
 
 import { validateParty } from '../validator.js';
 import { validateContract } from '../validator-contract.js';
+import { validatePremium, validateInvoice, validatePayment } from '../validator-premium.js';
 
 /** @type {import('./interfaces.js').IValidatorPlugin} */
 export const validatorPlugin = {
   validateParty,
   validateContract,
+  validatePremium,
+  validateInvoice,
+  validatePayment,
 };

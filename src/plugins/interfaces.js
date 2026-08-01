@@ -24,6 +24,22 @@
  * @property {(id: string, contract: object) => Promise<object|null>} updateContract
  * @property {(id: string) => Promise<boolean>}                   deleteContract
  * @property {(filters?: object) => Promise<object[]>}            queryContracts
+ * @property {(premium: object) => Promise<object>}               createPremium
+ * @property {(id: string) => Promise<object|null>}               getPremiumById
+ * @property {(id: string, premium: object) => Promise<object|null>} updatePremium
+ * @property {(id: string) => Promise<boolean>}                   deletePremium
+ * @property {(filters?: object) => Promise<object[]>}            queryPremiums
+ * @property {(invoice: object) => Promise<object>}               createInvoice
+ * @property {(id: string) => Promise<object|null>}               getInvoiceById
+ * @property {(id: string, invoice: object) => Promise<object|null>} updateInvoice
+ * @property {(id: string) => Promise<boolean>}                   deleteInvoice
+ * @property {(filters?: object) => Promise<object[]>}            queryInvoices
+ * @property {() => Promise<object[]>}                            getOpenInvoices
+ * @property {(payment: object) => Promise<object>}               createPayment
+ * @property {(id: string) => Promise<object|null>}               getPaymentById
+ * @property {(id: string, payment: object) => Promise<object|null>} updatePayment
+ * @property {(id: string) => Promise<boolean>}                   deletePayment
+ * @property {(filters?: object) => Promise<object[]>}            queryPayments
  */
 
 /**
@@ -38,14 +54,20 @@
  * @typedef {object} IValidatorPlugin
  * @property {(data: unknown) => { valid: boolean, errors: string[], suggestions: string[] }} validateParty
  * @property {(data: unknown) => { valid: boolean, errors: string[], suggestions: string[] }} validateContract
+ * @property {(data: unknown) => { valid: boolean, errors: string[], suggestions: string[] }} validatePremium
+ * @property {(data: unknown) => { valid: boolean, errors: string[], suggestions: string[] }} validateInvoice
+ * @property {(data: unknown) => { valid: boolean, errors: string[], suggestions: string[] }} validatePayment
  */
 
 // ─── Guards ───────────────────────────────────────────────────────────────────
 
 const STORAGE_METHODS   = ['createParty', 'getPartyById', 'updateParty', 'deleteParty', 'queryParties',
-                           'createContract', 'getContractById', 'updateContract', 'deleteContract', 'queryContracts'];
+                           'createContract', 'getContractById', 'updateContract', 'deleteContract', 'queryContracts',
+                           'createPremium', 'getPremiumById', 'updatePremium', 'deletePremium', 'queryPremiums',
+                           'createInvoice', 'getInvoiceById', 'updateInvoice', 'deleteInvoice', 'queryInvoices', 'getOpenInvoices',
+                           'createPayment', 'getPaymentById', 'updatePayment', 'deletePayment', 'queryPayments'];
 const LLM_METHODS       = ['generateParty', 'extractQueryFilters', 'generateContract', 'extractContractQueryFilters'];
-const VALIDATOR_METHODS = ['validateParty', 'validateContract'];
+const VALIDATOR_METHODS = ['validateParty', 'validateContract', 'validatePremium', 'validateInvoice', 'validatePayment'];
 
 function assertMethods(plugin, methods, interfaceName) {
   for (const method of methods) {

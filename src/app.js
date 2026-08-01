@@ -11,6 +11,9 @@
 import { env } from './runtime.js';
 import { partiesHandler } from './routes/parties.js';
 import { contractsHandler } from './routes/contracts.js';
+import { premiumsHandler } from './routes/premiums.js';
+import { invoicesHandler } from './routes/invoices.js';
+import { paymentsHandler } from './routes/payments.js';
 import { registerPlugin, getPlugin } from './plugins/registry.js';
 import { dbPlugin }        from './plugins/db-plugin.js';
 import { llmPlugin }       from './plugins/llm-plugin.js';
@@ -91,6 +94,27 @@ export async function handleRequest(request) {
       return json({ status: 'ok' });
     }
 
+    // GET /contracts/:id/premiums — list premiums for a contract
+    if (request.method === 'GET' && /^\/contracts\/[^/]+\/premiums$/.test(path)) {
+      const contractId = decodeURIComponent(path.split('/')[2]);
+      const storage = getPlugin('storage');
+      return json(await storage.queryPremiums({ contractId }));
+    }
+
+    // GET /premiums/:id/invoices — list invoices for a premium
+    if (request.method === 'GET' && /^\/premiums\/[^/]+\/invoices$/.test(path)) {
+      const premiumId = decodeURIComponent(path.split('/')[2]);
+      const storage = getPlugin('storage');
+      return json(await storage.queryInvoices({ premiumId }));
+    }
+
+    // GET /invoices/:id/payments — list payments for an invoice
+    if (request.method === 'GET' && /^\/invoices\/[^/]+\/payments$/.test(path)) {
+      const invoiceId = decodeURIComponent(path.split('/')[2]);
+      const storage = getPlugin('storage');
+      return json(await storage.queryPayments({ invoiceId }));
+    }
+
     // GET /parties/:id/contracts — convenience: list contracts for a specific party
     // Must be checked before the general /parties/* handler
     if (request.method === 'GET' && /^\/parties\/[^/]+\/contracts$/.test(path)) {
@@ -125,6 +149,21 @@ export async function handleRequest(request) {
         }
       }
       return await contractsHandler(request);
+    }
+
+    // All /premiums routes
+    if (path === '/premiums' || path.startsWith('/premiums/')) {
+      return await premiumsHandler(request);
+    }
+
+    // All /invoices routes
+    if (path === '/invoices' || path.startsWith('/invoices/')) {
+      return await invoicesHandler(request);
+    }
+
+    // All /payments routes
+    if (path === '/payments' || path.startsWith('/payments/')) {
+      return await paymentsHandler(request);
     }
 
     return json({ error: 'Not found.' }, { status: 404 });
