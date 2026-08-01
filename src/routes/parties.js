@@ -8,9 +8,7 @@
  *   partiesHandler(request) → Promise<Response>
  */
 
-import { validateParty } from '../validator.js';
-import { generateParty, extractQueryFilters } from '../llm.js';
-import { createParty, getPartyById, updateParty, deleteParty, queryParties } from '../db.js';
+import { getPlugin } from '../plugins/registry.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -38,6 +36,10 @@ async function parseBody(request) {
  * @returns {Promise<Response>}
  */
 export async function partiesHandler(request) {
+  const storage   = getPlugin('storage');
+  const llm       = getPlugin('llm');
+  const validator = getPlugin('validator');
+
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
   // Strip trailing slash and isolate the path after /parties
@@ -52,16 +54,16 @@ export async function partiesHandler(request) {
       return json({ error: '"prompt" (string) is required.' }, { status: 400 });
     }
 
-    const generated = await generateParty(prompt.trim());
+    const generated = await llm.generateParty(prompt.trim());
     const parties = Array.isArray(generated) ? generated : [generated];
     const stored = [];
 
     for (const party of parties) {
-      const { valid, errors } = validateParty(party);
+      const { valid, errors } = validator.validateParty(party);
       if (!valid) {
         return json({ error: 'Generated party failed validation.', errors, party }, { status: 422 });
       }
-      stored.push(await createParty(party));
+      stored.push(await storage.createParty(party));
     }
 
     return json(stored.length === 1 ? stored[0] : stored, { status: 201 });
@@ -74,7 +76,7 @@ export async function partiesHandler(request) {
     if (!data) {
       return json({ error: '"data" field is required.' }, { status: 400 });
     }
-    return json(validateParty(data));
+    return json(validator.validateParty(data));
   }
 
   // ── POST /parties/query ───────────────────────────────────────────────────
@@ -85,8 +87,8 @@ export async function partiesHandler(request) {
       return json({ error: '"nl_query" (string) is required.' }, { status: 400 });
     }
 
-    const filters = await extractQueryFilters(nl_query.trim());
-    const results = await queryParties(filters);
+    const filters = await llm.extractQueryFilters(nl_query.trim());
+    const results = await storage.queryParties(filters);
     return json({ filters, results });
   }
 
@@ -98,7 +100,7 @@ export async function partiesHandler(request) {
     if (q.get('name'))            filters.name = q.get('name');
     if (q.get('addressLocality')) filters.addressLocality = q.get('addressLocality');
 
-    return json(await queryParties(filters));
+    return json(await storage.queryParties(filters));
   }
 
   // ── POST /parties  (create from user-supplied JSON-LD) ────────────────────
@@ -112,12 +114,12 @@ export async function partiesHandler(request) {
       party['@id'] = `urn:uuid:${crypto.randomUUID()}`;
     }
 
-    const { valid, errors, suggestions } = validateParty(party);
+    const { valid, errors, suggestions } = validator.validateParty(party);
     if (!valid) {
       return json({ valid: false, errors, suggestions }, { status: 422 });
     }
 
-    return json(await createParty(party), { status: 201 });
+    return json(await storage.createParty(party), { status: 201 });
   }
 
   // ── /parties/:id  routes ──────────────────────────────────────────────────
@@ -127,14 +129,14 @@ export async function partiesHandler(request) {
 
     // GET /parties/:id
     if (method === 'GET') {
-      const party = await getPartyById(id);
+      const party = await storage.getPartyById(id);
       if (!party) return json({ error: 'Party not found.' }, { status: 404 });
       return json(party);
     }
 
     // PATCH /parties/:id
     if (method === 'PATCH') {
-      const existing = await getPartyById(id);
+      const existing = await storage.getPartyById(id);
       if (!existing) return json({ error: 'Party not found.' }, { status: 404 });
 
       const patch = await parseBody(request);
@@ -143,19 +145,19 @@ export async function partiesHandler(request) {
       }
 
       const merged = { ...existing, ...patch, '@id': id };
-      const { valid, errors, suggestions } = validateParty(merged);
+      const { valid, errors, suggestions } = validator.validateParty(merged);
       if (!valid) {
         return json({ valid: false, errors, suggestions }, { status: 422 });
       }
 
-      const updated = await updateParty(id, merged);
+      const updated = await storage.updateParty(id, merged);
       if (!updated) return json({ error: 'Party not found.' }, { status: 404 });
       return json(updated);
     }
 
     // DELETE /parties/:id
     if (method === 'DELETE') {
-      const deleted = await deleteParty(id);
+      const deleted = await storage.deleteParty(id);
       if (!deleted) return json({ error: 'Party not found.' }, { status: 404 });
       return new Response(null, { status: 204 });
     }

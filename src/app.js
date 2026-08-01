@@ -10,6 +10,18 @@
 
 import { env } from './runtime.js';
 import { partiesHandler } from './routes/parties.js';
+import { registerPlugin } from './plugins/registry.js';
+import { dbPlugin }        from './plugins/db-plugin.js';
+import { llmPlugin }       from './plugins/llm-plugin.js';
+import { validatorPlugin } from './plugins/validator-plugin.js';
+import { guiPage }         from './gui/page.js';
+
+// ─── Bootstrap default plugins ────────────────────────────────────────────────
+// Register built-in implementations. Replace any slot with a custom plugin
+// that satisfies the same interface before the first request arrives.
+registerPlugin('storage',   dbPlugin);
+registerPlugin('llm',       llmPlugin);
+registerPlugin('validator', validatorPlugin);
 
 // ─── In-memory rate limiter ───────────────────────────────────────────────────
 
@@ -61,6 +73,14 @@ export async function handleRequest(request) {
   try {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/$/, '') || '/';
+
+    // GUI — served at / and /gui
+    if (request.method === 'GET' && (path === '/' || path === '/gui')) {
+      return new Response(guiPage, {
+        status: 200,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
 
     // Health check
     if (path === '/health') {
