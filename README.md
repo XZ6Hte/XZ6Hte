@@ -1,4 +1,4 @@
-# Parties Manager — LLM Vibe Coder
+# Parties Manager — LLM Vibe Coder (Deno-first, WinterTC)
 
 A lightweight, AI-assisted REST API for managing **Party** entities (people, organisations, businesses) following [Schema.org](https://schema.org) conventions.  
 The LLM acts as a coding copilot: describe what you want in plain English and get back valid JSON-LD.

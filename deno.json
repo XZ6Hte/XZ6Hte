@@ -1,0 +1,13 @@
+{
+  "name": "parties-manager",
+  "version": "1.0.0",
+  "description": "LLM-powered Parties Management API — Deno-first, WinterTC compatible",
+  "tasks": {
+    "start": "deno run --env-file=.env --allow-net --allow-read --allow-write --allow-env src/main.js",
+    "dev":   "deno run --env-file=.env --allow-net --allow-read --allow-write --allow-env --watch src/main.js",
+    "check": "deno check src/main.js"
+  },
+  "imports": {
+    "better-sqlite3": "npm:better-sqlite3@^13.0.2"
+  }
+}

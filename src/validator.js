@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Schema.org-aware validator for Party JSON-LD documents.
  *
@@ -11,16 +9,19 @@
  *  5. No unknown (non-Schema.org) top-level properties
  *  6. Nested PostalAddress is validated when present
  *  7. Nested Role objects are validated when present
+ *
+ * Pure logic — no runtime-specific APIs. Works on Deno, Node, and any
+ * WinterTC-compatible runtime without modification.
  */
 
-const SCHEMA_CONTEXTS = new Set([
+export const SCHEMA_CONTEXTS = new Set([
   'https://schema.org',
   'https://schema.org/',
   'http://schema.org',
   'http://schema.org/',
 ]);
 
-const PARTY_TYPES = new Set([
+export const PARTY_TYPES = new Set([
   'Person',
   'Organization',
   'LocalBusiness',
@@ -65,7 +66,7 @@ const ROLE_PROPERTIES = new Set([
  * @param {unknown} data
  * @returns {{ valid: boolean, errors: string[], suggestions: string[] }}
  */
-function validateParty(data) {
+export function validateParty(data) {
   const errors = [];
   const suggestions = [];
 
@@ -134,7 +135,7 @@ function validateParty(data) {
     employees.forEach((emp, i) => {
       if (emp && typeof emp === 'object') {
         const nested = validateParty({ '@context': ctx, ...emp });
-        nested.errors.forEach(e => errors.push(`employee[${i}]: ${e}`));
+        nested.errors.forEach((e) => errors.push(`employee[${i}]: ${e}`));
       }
     });
   }
@@ -178,5 +179,3 @@ function validateRole(role, index) {
   }
   return errors;
 }
-
-module.exports = { validateParty, PARTY_TYPES };

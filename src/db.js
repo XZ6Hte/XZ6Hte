@@ -1,20 +1,25 @@
-'use strict';
+/**
+ * src/db.js — SQLite storage layer
+ *
+ * Uses runtime.createDb() from the switch so the same SQL logic runs on
+ * both Deno and Node.js. All functions are async because the DB is opened
+ * lazily on first access (the dynamic import in runtime.js is async).
+ */
 
-const Database = require('better-sqlite3');
-const path = require('path');
+import { env, createDb } from './runtime.js';
 
-const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'parties.db');
+const DB_PATH = env('DB_PATH', './parties.db');
 
-let db;
+let _db = null;
 
-function getDb() {
-  if (!db) {
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    migrate(db);
+async function getDb() {
+  if (!_db) {
+    _db = await createDb(DB_PATH);
+    _db.pragma('journal_mode = WAL');
+    _db.pragma('foreign_keys = ON');
+    migrate(_db);
   }
-  return db;
+  return _db;
 }
 
 function migrate(db) {
@@ -29,8 +34,8 @@ function migrate(db) {
       updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE INDEX IF NOT EXISTS idx_parties_type            ON parties(type);
-    CREATE INDEX IF NOT EXISTS idx_parties_name            ON parties(name COLLATE NOCASE);
+    CREATE INDEX IF NOT EXISTS idx_parties_type             ON parties(type);
+    CREATE INDEX IF NOT EXISTS idx_parties_name             ON parties(name COLLATE NOCASE);
     CREATE INDEX IF NOT EXISTS idx_parties_address_locality ON parties(address_locality COLLATE NOCASE);
   `);
 }
@@ -38,16 +43,15 @@ function migrate(db) {
 /**
  * Insert a new party document.
  * @param {object} party - validated JSON-LD party object
- * @returns {object} the stored party
+ * @returns {Promise<object>} the stored party
  */
-function createParty(party) {
-  const db = getDb();
+export async function createParty(party) {
+  const db = await getDb();
   const locality = extractLocality(party);
-  const stmt = db.prepare(`
+  db.prepare(`
     INSERT INTO parties (id, type, name, address_locality, data)
     VALUES (@id, @type, @name, @locality, @data)
-  `);
-  stmt.run({
+  `).run({
     id: party['@id'],
     type: party['@type'],
     name: party.name,
@@ -60,10 +64,10 @@ function createParty(party) {
 /**
  * Retrieve a party by its @id.
  * @param {string} id
- * @returns {object|null}
+ * @returns {Promise<object|null>}
  */
-function getPartyById(id) {
-  const db = getDb();
+export async function getPartyById(id) {
+  const db = await getDb();
   const row = db.prepare('SELECT data FROM parties WHERE id = ?').get(id);
   return row ? JSON.parse(row.data) : null;
 }
@@ -72,10 +76,10 @@ function getPartyById(id) {
  * Replace a party's data (full update).
  * @param {string} id
  * @param {object} party - new JSON-LD data
- * @returns {object|null} updated party, or null if not found
+ * @returns {Promise<object|null>} updated party, or null if not found
  */
-function updateParty(id, party) {
-  const db = getDb();
+export async function updateParty(id, party) {
+  const db = await getDb();
   const locality = extractLocality(party);
   const result = db.prepare(`
     UPDATE parties
@@ -95,10 +99,10 @@ function updateParty(id, party) {
 /**
  * Delete a party by its @id.
  * @param {string} id
- * @returns {boolean}
+ * @returns {Promise<boolean>}
  */
-function deleteParty(id) {
-  const db = getDb();
+export async function deleteParty(id) {
+  const db = await getDb();
   const result = db.prepare('DELETE FROM parties WHERE id = ?').run(id);
   return result.changes > 0;
 }
@@ -107,46 +111,36 @@ function deleteParty(id) {
  * Query parties using optional filter criteria.
  * All filters are case-insensitive partial matches.
  *
- * @param {object} filters - { type, name, addressLocality }
- * @returns {object[]} array of JSON-LD party objects
+ * @param {{ type?: string, name?: string, addressLocality?: string }} [filters]
+ * @returns {Promise<object[]>} array of JSON-LD party objects
  */
-function queryParties(filters = {}) {
-  const db = getDb();
+export async function queryParties(filters = {}) {
+  const db = await getDb();
   const conditions = [];
   const params = [];
 
   if (filters.type) {
-    conditions.push("type = ?");
+    conditions.push('type = ?');
     params.push(filters.type);
   }
   if (filters.name) {
-    conditions.push("name LIKE ? COLLATE NOCASE");
+    conditions.push('name LIKE ? COLLATE NOCASE');
     params.push(`%${filters.name}%`);
   }
   if (filters.addressLocality) {
-    conditions.push("address_locality LIKE ? COLLATE NOCASE");
+    conditions.push('address_locality LIKE ? COLLATE NOCASE');
     params.push(`%${filters.addressLocality}%`);
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   const rows = db.prepare(`SELECT data FROM parties ${where} LIMIT 100`).all(...params);
-  return rows.map(r => JSON.parse(r.data));
+  return rows.map((r) => JSON.parse(r.data));
 }
 
-/**
- * List all parties (up to 100).
- * @returns {object[]}
- */
-function listParties() {
-  return queryParties();
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function extractLocality(party) {
   const addr = party.address;
   if (!addr) return null;
-  return addr.addressLocality || null;
+  return addr.addressLocality ?? null;
 }
-
-module.exports = { createParty, getPartyById, updateParty, deleteParty, queryParties, listParties };

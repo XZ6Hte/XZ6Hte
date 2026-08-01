@@ -1,12 +1,17 @@
-'use strict';
+/**
+ * src/prompts/system.js
+ *
+ * System prompt and few-shot examples for the LLM.
+ * Pure data — no runtime-specific APIs.
+ */
 
-const { PARTY_TYPES } = require('../validator');
+import { PARTY_TYPES } from '../validator.js';
 
 /**
  * System prompt injected into every LLM call.
  * Defines the Schema.org Party vocabulary and output rules.
  */
-const SYSTEM_PROMPT = `
+export const SYSTEM_PROMPT = `
 You are an expert in Schema.org structured data, specialising in Party entities (Person, Organization, and related types).
 
 ## Your job
@@ -42,7 +47,7 @@ postalCode, addressCountry (ISO 3166-1 alpha-2), postOfficeBoxNumber.
 /**
  * Few-shot examples appended as assistant turns so the model understands the expected format.
  */
-const FEW_SHOT_MESSAGES = [
+export const FEW_SHOT_MESSAGES = [
   {
     role: 'user',
     content: 'Create a software company called TechNova based in Berlin with a CEO named Lisa Müller.',
@@ -144,7 +149,7 @@ const FEW_SHOT_MESSAGES = [
 /**
  * Prompt instructing the model to extract query filter fields from natural language.
  */
-const QUERY_EXTRACTION_SYSTEM = `
+export const QUERY_EXTRACTION_SYSTEM = `
 You are a query parser for a Parties database.
 Given a natural-language query, extract filter criteria and return ONLY a JSON object with these optional fields:
   - type: one of Person, Organization, LocalBusiness, LegalService, MedicalOrganization, EducationalOrganization, GovernmentOrganization, NGO, Corporation
@@ -154,5 +159,3 @@ Given a natural-language query, extract filter criteria and return ONLY a JSON o
 Return an empty object {} if no filters can be extracted.
 Never include extra fields or explanations. Output only valid JSON.
 `;
-
-module.exports = { SYSTEM_PROMPT, FEW_SHOT_MESSAGES, QUERY_EXTRACTION_SYSTEM };

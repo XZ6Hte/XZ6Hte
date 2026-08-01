@@ -1,24 +1,17 @@
-'use strict';
+/**
+ * src/llm.js — LLM client
+ *
+ * Uses globalThis.fetch (WinterTC Web standard API) to call the OpenAI
+ * Chat Completions endpoint directly — no SDK dependency required.
+ * Works identically on Deno, Node 18+, and any WinterTC runtime.
+ */
 
-const OpenAI = require('openai');
-const { v4: uuidv4 } = require('uuid');
-const { SYSTEM_PROMPT, FEW_SHOT_MESSAGES, QUERY_EXTRACTION_SYSTEM } = require('./prompts/system');
-const { validateParty } = require('./validator');
+import { env } from './runtime.js';
+import { SYSTEM_PROMPT, FEW_SHOT_MESSAGES, QUERY_EXTRACTION_SYSTEM } from './prompts/system.js';
+import { validateParty } from './validator.js';
 
 const MAX_CORRECTION_ATTEMPTS = 1;
-
-let _client = null;
-
-function getClient() {
-  if (!_client) {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY environment variable is not set.');
-    }
-    _client = new OpenAI({ apiKey });
-  }
-  return _client;
-}
+const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
 /**
  * Ask the LLM to generate one or more Party JSON-LD objects from a prompt.
@@ -27,7 +20,7 @@ function getClient() {
  * @param {string} prompt
  * @returns {Promise<object>} JSON-LD Party object (or array)
  */
-async function generateParty(prompt) {
+export async function generateParty(prompt) {
   const messages = [
     ...FEW_SHOT_MESSAGES,
     { role: 'user', content: prompt },
@@ -39,7 +32,7 @@ async function generateParty(prompt) {
   // Auto-correction loop
   for (let attempt = 0; attempt < MAX_CORRECTION_ATTEMPTS; attempt++) {
     const partiesToCheck = Array.isArray(parsed) ? parsed : [parsed];
-    const allErrors = partiesToCheck.flatMap(p => {
+    const allErrors = partiesToCheck.flatMap((p) => {
       const result = validateParty(p);
       return result.errors;
     });
@@ -68,7 +61,7 @@ async function generateParty(prompt) {
  * @param {string} nlQuery
  * @returns {Promise<{ type?: string, name?: string, addressLocality?: string }>}
  */
-async function extractQueryFilters(nlQuery) {
+export async function extractQueryFilters(nlQuery) {
   const raw = await callLLM(QUERY_EXTRACTION_SYSTEM, [
     { role: 'user', content: nlQuery },
   ]);
@@ -82,20 +75,32 @@ async function extractQueryFilters(nlQuery) {
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 async function callLLM(systemPrompt, messages) {
-  const client = getClient();
-  const model = process.env.OPENAI_MODEL || 'gpt-4o';
+  const apiKey = env('OPENAI_API_KEY');
+  if (!apiKey) throw new Error('OPENAI_API_KEY environment variable is not set.');
 
-  const response = await client.chat.completions.create({
-    model,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: systemPrompt },
-      ...messages,
-    ],
-    temperature: 0.2,
+  const model = env('OPENAI_MODEL', 'gpt-4o');
+
+  const response = await fetch(OPENAI_API_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      response_format: { type: 'json_object' },
+      messages: [{ role: 'system', content: systemPrompt }, ...messages],
+      temperature: 0.2,
+    }),
   });
 
-  return response.choices[0].message.content;
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`OpenAI API error ${response.status}: ${text}`);
+  }
+
+  const data = await response.json();
+  return data.choices[0].message.content;
 }
 
 function parseJSON(raw) {
@@ -109,16 +114,16 @@ function parseJSON(raw) {
 
 function ensureIds(data) {
   if (Array.isArray(data)) {
-    return data.map(item => ensureIds(item));
+    return data.map((item) => ensureIds(item));
   }
   if (data && typeof data === 'object') {
     if (!data['@id']) {
-      data['@id'] = `urn:uuid:${uuidv4()}`;
+      data['@id'] = `urn:uuid:${crypto.randomUUID()}`;
     }
     if (Array.isArray(data.employee)) {
-      data.employee = data.employee.map(emp => {
+      data.employee = data.employee.map((emp) => {
         if (emp && typeof emp === 'object' && !emp['@id']) {
-          emp['@id'] = `urn:uuid:${uuidv4()}`;
+          emp['@id'] = `urn:uuid:${crypto.randomUUID()}`;
         }
         return emp;
       });
@@ -126,5 +131,3 @@ function ensureIds(data) {
   }
   return data;
 }
-
-module.exports = { generateParty, extractQueryFilters };
