@@ -1,13 +1,20 @@
 /**
  * Schema.org-aware validator for Contract/Insurance JSON-LD documents.
  *
+ * Supported insurance categories (technische Versicherungen / engineering insurance):
+ *  - ConstructionInsurance   — Bauleistungsversicherung (Construction All Risk, CAR)
+ *  - ErectionInsurance       — Montageversicherung (Erection All Risk, EAR)
+ *  - MachineryInsurance      — Maschinenversicherung stationär (Machinery Breakdown, MB)
+ *  - MobileMachineryInsurance— Maschinenversicherung fahrbar (Mobile Machinery, CAM)
+ *  - ElectronicEquipmentInsurance — Elektronikversicherung (Electronic Equipment, EEI)
+ *
  * Rules enforced:
  *  1. @context must be "https://schema.org" (or equivalent)
  *  2. @type must be a known Contract-compatible Schema.org type
  *  3. name (string) is required
  *  4. @id is required
  *  5. At least one party reference (provider, offeredBy, or insuredParty) is required
- *  6. No unknown top-level properties (insuredParty is a permitted domain extension)
+ *  6. No unknown top-level properties (insuredParty and engineering extensions are permitted)
  *  7. provider / offeredBy / insuredParty references are validated when present
  *  8. Date fields (validFrom, validThrough) must be ISO 8601 strings
  *
@@ -20,6 +27,12 @@ import { SCHEMA_CONTEXTS } from './validator.js';
 export const CONTRACT_TYPES = new Set([
   'FinancialProduct',
   'HealthInsurancePlan',
+  // Engineering insurance (technische Versicherungen)
+  'ConstructionInsurance',         // Bauleistungsversicherung (CAR)
+  'ErectionInsurance',             // Montageversicherung (EAR)
+  'MachineryInsurance',            // Maschinenversicherung stationär (MB)
+  'MobileMachineryInsurance',      // Maschinenversicherung fahrbar (CAM)
+  'ElectronicEquipmentInsurance',  // Elektronikversicherung (EEI)
 ]);
 
 /** Schema.org types that are valid for provider / insuredParty references. */
@@ -37,8 +50,8 @@ const PARTY_REF_TYPES = new Set([
 ]);
 
 /**
- * All Schema.org properties (plus the domain extension "insuredParty") accepted
- * at the Contract level.
+ * All Schema.org properties (plus domain extensions) accepted at the Contract level.
+ * Engineering insurance extensions are marked with inline comments.
  */
 const CONTRACT_PROPERTIES = new Set([
   '@context', '@type', '@id',
@@ -60,6 +73,16 @@ const CONTRACT_PROPERTIES = new Set([
   'includesHealthPlanNetwork',
   'healthPlanDrugOption',
   'usesHealthPlanIdStandard',
+  // Engineering insurance extensions (technische Versicherungen)
+  'insuredObject',           // description of the insured item/project/machine
+  'insuredSum',              // sum insured (string with currency, e.g. "€ 5,000,000")
+  'constructionSite',        // PostalAddress of the construction / erection site
+  'projectDuration',         // overall project duration as an ISO 8601 duration or free text
+  'deductible',              // deductible / Selbstbehalt (string with amount)
+  'coverageExtensions',      // array of strings describing additional coverage clauses
+  'machineryType',           // machine classification: "stationary" | "mobile"
+  'manufactureYear',         // year of manufacture (number)
+  'serialNumber',            // machine or equipment serial / chassis number
 ]);
 
 /**
@@ -88,7 +111,7 @@ export function validateContract(data) {
   // 2. @type
   const type = data['@type'];
   if (!type) {
-    errors.push('Missing "@type". Must be a Contract type such as "FinancialProduct" or "HealthInsurancePlan".');
+    errors.push('Missing "@type". Must be a Contract type such as "FinancialProduct", "HealthInsurancePlan", or an engineering insurance type (ConstructionInsurance, ErectionInsurance, MachineryInsurance, MobileMachineryInsurance, ElectronicEquipmentInsurance).');
     suggestions.push(`Valid types: ${[...CONTRACT_TYPES].join(', ')}.`);
   } else if (!CONTRACT_TYPES.has(type)) {
     errors.push(`"@type" "${type}" is not a recognised Contract type.`);

@@ -141,6 +141,52 @@ All entities follow [Schema.org](https://schema.org) JSON-LD.
 | `startDate` | ISO 8601 |
 | `endDate` | ISO 8601 |
 
+### Contract (Insurance)
+
+The contract model focuses on **engineering insurance** (technische Versicherungen) and also supports general financial products and health insurance plans.
+
+#### `@type` values
+
+| `@type` | German name | Industry code |
+|---|---|---|
+| `ConstructionInsurance` | Bauleistungsversicherung | CAR |
+| `ErectionInsurance` | Montageversicherung | EAR |
+| `MachineryInsurance` | Maschinenversicherung stationär | MB |
+| `MobileMachineryInsurance` | Maschinenversicherung fahrbar | CAM |
+| `ElectronicEquipmentInsurance` | Elektronikversicherung | EEI |
+| `FinancialProduct` | Allgemeine Versicherungsprodukte | — |
+| `HealthInsurancePlan` | Krankenversicherung | — |
+
+#### Common Contract fields
+
+| Field | Type | Description |
+|---|---|---|
+| `@context` | `"https://schema.org"` | Required |
+| `@type` | string | See table above |
+| `@id` | URI | Unique identifier (`urn:uuid:…`) |
+| `name` | string | Policy / product name — Required |
+| `description` | string | |
+| `provider` | Party ref | Insurer (InsuranceAgency or Organisation) |
+| `insuredParty` | Party ref | Policyholder (Person or Organisation) |
+| `insuredSum` | string | Sum insured incl. currency, e.g. `"EUR 5,000,000"` |
+| `validFrom` | ISO 8601 | Policy start date |
+| `validThrough` | ISO 8601 | Policy end date |
+| `deductible` | string | Deductible / Selbstbehalt, e.g. `"EUR 10,000"` |
+| `areaServed` | string | ISO country code or region |
+| `feesAndCommissionsSpecification` | string | Premium description |
+
+#### Engineering insurance extension fields
+
+| Field | Type | Description |
+|---|---|---|
+| `insuredObject` | string | Description of the insured item, project, or machine |
+| `constructionSite` | PostalAddress | Location of the construction / erection site |
+| `projectDuration` | string | ISO 8601 duration (e.g. `"P18M"`) or free text |
+| `coverageExtensions` | string[] | Additional coverage clauses |
+| `machineryType` | `"stationary"` \| `"mobile"` | For MB / CAM policies |
+| `manufactureYear` | number | Year of manufacture |
+| `serialNumber` | string | Machine or equipment serial / chassis number |
+
 ---
 
 ## Configuration
